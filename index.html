@@ -8,7 +8,15 @@ import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase
 import {getDatabase,ref,get,set,onValue,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
 import {getAuth,signInAnonymously,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 // Optional: paste your public Firebase web config here for all visitors.
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDRncsq8i7OP7IYsSWNXyHDYRUbhwaiuLM",
+  authDomain: "ettan-57a86.firebaseapp.com",
+  databaseURL: "https://ettan-57a86-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "ettan-57a86",
+  storageBucket: "ettan-57a86.firebasestorage.app",
+  messagingSenderId: "10879828479",
+  appId: "1:10879828479:web:ac3bef0ec546c4c8c3e7ca"
+};;
 const $=id=>document.getElementById(id), colors=['red','blue','green','yellow'], labels={red:'Röd',blue:'Blå',green:'Grön',yellow:'Gul'}, symbols={skip:'⊘',reverse:'⇄',draw2:'+2',wild:'★',wild4:'+4'};
 let db=null,auth=null,uid=null,roomCode=null,playerId=null,current=null,unsub=null,localMode=true,busy=false;
 const configText=localStorage.getItem('oc_config')||JSON.stringify(FIREBASE_CONFIG||{});$('firebaseConfig').value=configText==='{}'?'':configText;
