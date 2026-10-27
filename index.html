@@ -1,0 +1,120 @@
+<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OFFICE CARDS</title><style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#f1f5f9;background:#0c1425}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:auto;padding:22px}h1{letter-spacing:3px;margin:0;font-size:28px}h2{margin:8px 0 14px}p,.muted{color:#aebbd0}header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}.panel{background:#18243a;border:1px solid #32415b;border-radius:17px;padding:20px;margin:14px 0}input,button,select{font:inherit;border-radius:10px;padding:11px 13px}input{background:#0d1729;color:white;border:1px solid #53637c;max-width:100%;width:100%}button{border:0;background:#60a5fa;color:#07182d;font-weight:700;cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#35445e;color:white}.danger{background:#fb7185;color:#290912}.actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.hidden{display:none!important}.pill{display:inline-block;border:1px solid #52617b;padding:5px 10px;border-radius:99px;font-size:13px}.players{display:flex;flex-wrap:wrap;gap:9px}.player{background:#253650;padding:10px 14px;border-radius:10px}.active{outline:2px solid #facc15}.tabletop{display:flex;justify-content:center;align-items:center;gap:24px;min-height:205px}.card{width:91px;height:140px;border-radius:13px;border:5px solid #fff;box-shadow:0 6px 16px #0006;display:flex;align-items:center;justify-content:center;font-size:39px;font-weight:900;color:white;flex-shrink:0;position:relative;text-shadow:0 2px 2px #0006}.card:after{content:attr(data-label);position:absolute;top:7px;left:7px;font-size:14px}.red{background:#e64655}.blue{background:#3279ed}.green{background:#24a56b}.yellow{background:#eab92e;color:#172136;text-shadow:none}.wild{background:conic-gradient(#e64655 0 25%,#3279ed 0 50%,#24a56b 0 75%,#eab92e 0)}.back{background:linear-gradient(130deg,#12233d,#6b46c1);font-size:22px}.hand{display:flex;gap:8px;overflow-x:auto;padding:10px 0 18px}.hand button{padding:0;background:transparent}.hand button .card{width:76px;height:115px;font-size:31px}.hand button .card:after{font-size:11px}.hand button:disabled{opacity:.35}.log{max-height:200px;overflow:auto;color:#b8c6dc;font-size:14px}.status{color:#facc15;font-weight:700}.small{font-size:13px}#notice{color:#fda4af;white-space:pre-wrap}code{background:#0c1425;padding:3px 6px;border-radius:5px;overflow-wrap:anywhere}@media(max-width:520px){main{padding:12px}.panel{padding:14px}.card{width:77px;height:117px}.tabletop{gap:12px}.hand button .card{width:65px;height:100px}}
+</style></head><body><main><header><div><h1>OFFICE CARDS</h1><span class="muted">Ett drag när det passar dig.</span></div><span id="mode" class="pill">Ansluter…</span></header><div id="notice"></div>
+<section id="setup" class="panel"><h2>Välkommen</h2><p>Skapa ett spel eller anslut till ett befintligt. För att spela mellan olika datorer krävs molninställningarna nedan. Demoläget fungerar direkt på denna enhet.</p><div class="grid"><div><label>Ditt spelarnamn</label><input id="name" maxlength="24" placeholder="Ex. Alex"></div><div><label>Rumskod</label><input id="room" maxlength="12" placeholder="Ex. ABCD72" autocapitalize="characters"></div></div><div class="actions" style="margin-top:14px"><button id="create">Skapa nytt rum</button><button id="join" class="secondary">Gå med i rum</button></div><details style="margin-top:20px"><summary>Molninställningar för riktig multiplayer</summary><p class="small">Firebase-projektet är redan konfigurerat i denna version. Du behöver inte fylla i något här.</p><textarea id="firebaseConfig" rows="7" style="width:100%;background:#0d1729;color:white;border:1px solid #53637c;border-radius:10px;padding:10px" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"...","appId":"..."}'></textarea><div class="actions"><button id="saveConfig" class="secondary">Spara molninställningar</button><button id="clearConfig" class="secondary">Använd demo</button></div></details></section>
+<section id="game" class="hidden"><div class="panel"><div class="actions" style="justify-content:space-between"><div><strong id="roomTitle"></strong> <span id="round" class="pill"></span></div><div class="actions"><button id="copy" class="secondary">Kopiera inbjudan</button><button id="leave" class="secondary">Lämna vyn</button></div></div><p id="status" class="status"></p><div id="players" class="players"></div><div id="hostActions" class="actions" style="margin-top:15px"></div></div><div class="panel"><div class="tabletop"><div><div id="deck" class="card back">OC</div><p class="small">Draghög: <span id="deckCount">0</span></p></div><div><div id="top" class="card back">?</div><p class="small">Aktiv färg: <b id="color"></b></p></div></div><div id="turnActions" class="actions" style="justify-content:center"></div></div><div class="panel"><h2>Din hand <span id="handCount" class="pill"></span></h2><div id="hand" class="hand"></div><p class="small muted">Regler: matcha färg eller symbol. +2 och +4 gör att nästa spelare drar kort och förlorar sin tur. Vänd byter spelriktning, stopp hoppar över nästa spelare. Du måste säga UNO när du har ett kort kvar – här sker det automatiskt. Första spelaren utan kort vinner.</p></div><div class="panel"><h2>Händelser</h2><div id="log" class="log"></div></div></section>
+</main><script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+import {getDatabase,ref,get,set,onValue,runTransaction} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
+import {getAuth,signInAnonymously,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+// Optional: paste your public Firebase web config here for all visitors.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDRncsq8i7OP7IYsSWNXyHDYRUbhwaiuLM",
+  authDomain: "ettan-57a86.firebaseapp.com",
+  databaseURL: "https://ettan-57a86-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "ettan-57a86",
+  storageBucket: "ettan-57a86.firebasestorage.app",
+  messagingSenderId: "10879828479",
+  appId: "1:10879828479:web:ac3bef0ec546c4c8c3e7ca"
+};
+const $=id=>document.getElementById(id), colors=['red','blue','green','yellow'], labels={red:'Röd',blue:'Blå',green:'Grön',yellow:'Gul'}, symbols={skip:'⊘',reverse:'⇄',draw2:'+2',wild:'★',wild4:'+4'};
+let db=null,auth=null,uid=null,roomCode=null,playerId=null,current=null,unsub=null,localMode=true,busy=false;
+const configText=JSON.stringify(FIREBASE_CONFIG||{});$('firebaseConfig').value=configText==='{}'?'':configText;
+function id(){return crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)}
+function randomCode(){return Math.random().toString(36).slice(2,8).toUpperCase()}
+function shuffled(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function deck(){let a=[];for(let c of colors){a.push({c,v:'0'});for(let n=1;n<=9;n++)for(let k=0;k<2;k++)a.push({c,v:String(n)});for(let v of ['skip','reverse','draw2'])for(let k=0;k<2;k++)a.push({c,v})}for(let k=0;k<4;k++){a.push({c:'wild',v:'wild'},{c:'wild',v:'wild4'})}return shuffled(a)}
+function initGame(s){let d=deck();s.hands={};for(let p of s.players){s.hands[p.id]=d.splice(0,7)}let first=d.findIndex(x=>x.c!=='wild'&&!['draw2','skip','reverse'].includes(x.v));s.discard=[d.splice(first,1)[0]];s.deck=d;s.color=s.discard[0].c;s.turn=0;s.direction=1;s.phase='playing';s.winner=null;s.round=(s.round||0)+1;s.log=[`Runda ${s.round} startade.`];return s}
+function next(s,steps=1){s.turn=(s.turn+s.direction*steps%s.players.length+s.players.length*3)%s.players.length}
+function draw(s,n){let result=[];for(let i=0;i<n;i++){if(!s.deck.length){let top=s.discard.pop();s.deck=shuffled(s.discard);s.discard=[top]}if(s.deck.length)result.push(s.deck.pop())}return result}
+function legal(card,s,hand){let top=s.discard.at(-1);if(card.v==='wild4')return !hand.some(x=>x.c===s.color);return card.c==='wild'||card.c===s.color||card.v===top.v}
+function gameAction(s,pid,action,arg){if(s.phase!=='playing')throw Error('Rundan har inte startat.');if(s.players[s.turn].id!==pid)throw Error('Det är inte din tur.');let hand=s.hands[pid],name=s.players[s.turn].name;
+if(action==='play'){let index=arg.index,card=hand[index];if(!card||!legal(card,s,hand))throw Error('Det kortet får inte spelas.');if(card.c==='wild'&&!colors.includes(arg.color))throw Error('Välj en färg.');hand.splice(index,1);s.discard.push(card);s.color=card.c==='wild'?arg.color:card.c;s.log.push(`${name} spelade ${card.v} (${labels[s.color]}).`);if(!hand.length){s.phase='finished';s.winner=pid;s.log.push(`${name} vann rundan!`);return}s.drawn=false;let skip=card.v==='skip'||card.v==='draw2'||card.v==='wild4';if(card.v==='reverse'){s.direction*=-1;if(s.players.length===2)skip=true}next(s);if(card.v==='draw2'||card.v==='wild4'){let n=card.v==='draw2'?2:4;let target=s.players[s.turn];s.hands[target.id].push(...draw(s,n));s.log.push(`${target.name} drog ${n} kort.`)}if(skip)next(s);}
+else if(action==='draw'){if(s.drawn)throw Error('Du har redan dragit.');hand.push(...draw(s,1));s.drawn=true;s.log.push(`${name} drog ett kort.`)}
+else if(action==='pass'){if(!s.drawn)throw Error('Dra ett kort först.');s.drawn=false;next(s);s.log.push(`${name} passade.`)}
+else throw Error('Okänd handling.');s.log=s.log.slice(-45)}
+function safeName(v){return (v||'').trim().slice(0,24)}
+function demoKey(code){return 'oc_room_'+code}
+function loadDemo(code){let raw=localStorage.getItem(demoKey(code));return raw?JSON.parse(raw):null}
+function saveDemo(code,s){localStorage.setItem(demoKey(code),JSON.stringify(s));window.dispatchEvent(new Event('oc-change'))}
+async function connect(){let config=FIREBASE_CONFIG;if(!config?.apiKey||!config?.databaseURL){localMode=true;$('mode').textContent='Lokal demo';return}let app=initializeApp(config);db=getDatabase(app);auth=getAuth(app);let cred=await signInAnonymously(auth);uid=cred.user.uid;localMode=false;$('mode').textContent='Online · v1.2';}
+function notice(e){$('notice').textContent=e?.message||String(e)}
+function playerIdentity(code){if(!localMode)return uid;let key='oc_player_'+code;let v=localStorage.getItem(key);if(!v){v=id();localStorage.setItem(key,v)}return v}
+async function readRoom(code){if(localMode)return loadDemo(code);let snap=await get(ref(db,'rooms/'+code));return snap.val()}
+async function mutate(fn){if(busy)return;busy=true;try{if(localMode){let s=loadDemo(roomCode);if(!s)throw Error('Rummet finns inte.');fn(s);saveDemo(roomCode,s);render(s)}else{let error=null;let res=await runTransaction(ref(db,'rooms/'+roomCode),s=>{if(!s)return;try{fn(s);return s}catch(e){error=e;return}}, {applyLocally:false});if(error)throw error;if(!res.committed)throw Error('Ändringen kunde inte sparas. Försök igen.')}}catch(e){notice(e)}finally{busy=false}}
+async function enter(create){
+  $('notice').textContent='';
+  if(!localMode&&!uid)throw Error('Firebase-inloggningen är inte klar. Uppdatera sidan.');
+  const name=safeName($('name').value);
+  if(!name)throw Error('Skriv ett spelarnamn.');
+  localStorage.setItem('oc_name',name);
+  const code=create?randomCode():$('room').value.trim().toUpperCase();
+  if(!/^[A-Z0-9]{4,12}$/.test(code))throw Error('Rumskoden ska vara 4–12 bokstäver/siffror.');
+  const pid=playerIdentity(code);
+  const roomRef=localMode?null:ref(db,'rooms/'+code);
+  if(create){
+    const state={players:[{id:pid,name}],hands:{},deck:[],discard:[],phase:'lobby',turn:0,direction:1,round:0,log:[`${name} skapade rummet.`]};
+    if(localMode){if(loadDemo(code))throw Error('Rummet finns redan.');saveDemo(code,state)}
+    else{
+      const tx=await runTransaction(roomRef,old=>old===null?state:undefined,{applyLocally:false});
+      if(!tx.committed)throw Error('Rumskoden finns redan. Försök igen.');
+    }
+  }else{
+    if(localMode){
+      const state=loadDemo(code);
+      if(!state)throw Error('Rummet finns inte i demoläget.');
+      if(!state.players.some(p=>p.id===pid)){
+        if(state.phase!=='lobby'||state.players.length>=10)throw Error('Rummet är startat eller fullt.');
+        state.players.push({id:pid,name});saveDemo(code,state);
+      }
+    }else{
+      // Load the server state before starting a transaction. Firebase can invoke
+      // a transaction with an initially empty local cache; aborting on that
+      // initial null incorrectly reports an existing room as missing.
+      const initial=await get(roomRef);
+      if(!initial.exists())throw Error('Rummet finns inte i Firebase. Kontrollera rumskoden.');
+      let reason='';
+      const tx=await runTransaction(roomRef,state=>{
+        if(!state){reason='Rummet kunde inte läsas vid anslutning. Försök igen.';return undefined}
+        if(!Array.isArray(state.players)){reason='Rummets spelardata är felaktiga. Skapa ett nytt rum.';return undefined}
+        if(state.players.some(p=>p.id===pid))return state;
+        if(state.phase!=='lobby'){reason='Spelet har redan startat.';return undefined}
+        if(state.players.length>=10){reason='Rummet är fullt.';return undefined}
+        state.players.push({id:pid,name});
+        state.log=(state.log||[]).concat(`${name} gick med i rummet.`).slice(-45);
+        return state;
+      },{applyLocally:false});
+      if(!tx.committed)throw Error(reason||'Kunde inte ansluta. Kontrollera Firebase-reglerna.');
+      if(!tx.snapshot.val()?.players?.some(p=>p.id===pid))throw Error('Anslutningen sparades inte i Firebase.');
+    }
+  }
+  roomCode=code;playerId=pid;
+  $('setup').classList.add('hidden');$('game').classList.remove('hidden');
+  history.replaceState(null,'',location.pathname+'?room='+code);
+  $('roomTitle').textContent='Rum: '+code;
+  if(unsub)unsub();
+  if(localMode){
+    const f=()=>render(loadDemo(code));
+    window.addEventListener('storage',f);window.addEventListener('oc-change',f);
+    unsub=()=>{window.removeEventListener('storage',f);window.removeEventListener('oc-change',f)};
+    render(loadDemo(code));
+  }else{
+    unsub=onValue(roomRef,snap=>{
+      if(!snap.exists()){notice('Rummet saknas i databasen.');return}
+      const state=snap.val();
+      if(!state.players?.some(p=>p.id===playerId)){notice('Du finns inte i rummets spelarlista. Anslut igen.');return}
+      $('notice').textContent='';render(state);
+    },e=>notice('Firebase-synkronisering misslyckades: '+e.message));
+  }
+}
+function cardNode(card){let el=document.createElement('div');el.className='card '+card.c;el.textContent=symbols[card.v]||card.v;el.dataset.label=card.c==='wild'?'W':card.c[0].toUpperCase();return el}
+function addButton(parent,label,cb,cls=''){let b=document.createElement('button');b.textContent=label;b.className=cls;b.onclick=cb;parent.append(b);return b}
+function render(s){if(!s)return;current=s;let me=s.players.find(p=>p.id===playerId);$('round').textContent='Runda '+(s.round||'–');$('players').replaceChildren();for(let [i,p] of s.players.entries()){let d=document.createElement('div');d.className='player '+(s.phase==='playing'&&i===s.turn?'active':'');d.textContent=p.name+(p.id===playerId?' (du)':'')+(s.phase==='playing'?' · '+(s.hands[p.id]?.length||0)+' kort':'');$('players').append(d)}let myTurn=s.phase==='playing'&&s.players[s.turn]?.id===playerId;
+$('status').textContent=s.phase==='lobby'?`Väntar på spelare (${s.players.length}/10). Minst 2 krävs.`:s.phase==='finished'?`${s.players.find(p=>p.id===s.winner)?.name||'Någon'} vann!`:`${s.players[s.turn]?.name} ska spela${myTurn?' – din tur!':''}`;
+$('hostActions').replaceChildren();if(s.phase==='lobby'&&s.players[0]?.id===playerId){let b=addButton($('hostActions'),'Starta spelet',()=>mutate(x=>{if(x.phase!=='lobby'||x.players.length<2)throw Error('Minst 2 spelare krävs.');initGame(x)}));b.disabled=s.players.length<2}if(s.phase==='finished'&&s.players[0]?.id===playerId)addButton($('hostActions'),'Spela igen',()=>mutate(x=>{if(x.phase!=='finished')throw Error('Rundan är inte slut.');initGame(x)}));
+$('top').replaceWith(cardNode(s.discard?.at(-1)||{c:'back',v:'?'}));let top=$('game').querySelector('.tabletop > div:nth-child(2) .card');top.id='top';$('color').textContent=labels[s.color]||'–';$('deckCount').textContent=s.deck?.length||0;
+let hand=s.hands?.[playerId]||[];$('handCount').textContent=hand.length+' kort';$('hand').replaceChildren();for(let [i,c] of hand.entries()){let b=document.createElement('button');b.append(cardNode(c));b.disabled=!myTurn||!legal(c,s,hand);b.onclick=()=>{let color=c.c==='wild'?prompt('Välj färg: röd, blå, grön eller gul','röd'):c.c;let map={'röd':'red','blå':'blue','grön':'green','gul':'yellow'};if(c.c==='wild'){if(color===null)return;color=map[color.trim().toLowerCase()];if(!color){notice('Ogiltig färg.');return}}mutate(x=>gameAction(x,playerId,'play',{index:i,color}))};$('hand').append(b)}
+$('turnActions').replaceChildren();if(myTurn){if(!s.drawn)addButton($('turnActions'),'Dra ett kort',()=>mutate(x=>gameAction(x,playerId,'draw')));else addButton($('turnActions'),'Passa turen',()=>mutate(x=>gameAction(x,playerId,'pass')),'secondary')}
+$('log').replaceChildren();for(let msg of [...(s.log||[])].reverse()){let p=document.createElement('div');p.textContent=msg;$('log').append(p)}}
+$('create').onclick=()=>enter(true).catch(notice);$('join').onclick=()=>enter(false).catch(notice);$('saveConfig').onclick=()=>notice('Molninställningarna är redan inbyggda i denna version.');$('clearConfig').onclick=()=>notice('Demoläget är avaktiverat i denna publicerade version.');$('copy').onclick=async()=>{let link=location.href;let txt=`Spela OFFICE CARDS! Rumskod: ${roomCode}\n${link}`;try{await navigator.clipboard.writeText(txt);$('copy').textContent='Kopierat!';setTimeout(()=>$('copy').textContent='Kopiera inbjudan',2000)}catch{prompt('Kopiera inbjudan:',txt)}};$('leave').onclick=()=>{if(unsub)unsub();location.href=location.pathname};$('name').value=localStorage.getItem('oc_name')||'';$('room').value=new URLSearchParams(location.search).get('room')||'';connect().catch(e=>notice('Molnanslutning misslyckades: '+e.message));
+</script></body></html>
